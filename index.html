@@ -511,6 +511,9 @@
                             <button onclick="copyKeywords('exact')" class="mt-2 text-xs bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 py-1 rounded hover:from-blue-700 hover:to-blue-800 transition-colors">
                                 Copy All
                             </button>
+                            <button onclick="clearKeywords('exact')" class="mt-2 ml-2 text-xs bg-white text-blue-700 border border-blue-300 px-3 py-1 rounded hover:bg-blue-50">
+                                Remove All
+                            </button>
                         </div>
 
                         <div class="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -522,6 +525,9 @@
                             <button onclick="copyKeywords('broad')" class="mt-2 text-xs bg-gradient-to-r from-green-600 to-green-700 text-white px-3 py-1 rounded hover:from-green-700 hover:to-green-800 transition-colors">
                                 Copy All
                             </button>
+                            <button onclick="clearKeywords('broad')" class="mt-2 ml-2 text-xs bg-white text-green-700 border border-green-300 px-3 py-1 rounded hover:bg-green-50">
+                                Remove All
+                            </button>
                         </div>
 
                         <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
@@ -532,6 +538,9 @@
                             <div id="phraseKeywords" class="space-y-1 max-h-32 overflow-y-auto"></div>
                             <button onclick="copyKeywords('phrase')" class="mt-2 text-xs bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 py-1 rounded hover:from-purple-700 hover:to-purple-800 transition-colors">
                                 Copy All
+                            </button>
+                            <button onclick="clearKeywords('phrase')" class="mt-2 ml-2 text-xs bg-white text-purple-700 border border-purple-300 px-3 py-1 rounded hover:bg-purple-50">
+                                Remove All
                             </button>
                         </div>
                     </div>
@@ -2199,6 +2208,53 @@
                     }
                 }, 300);
             }, 3000);
+        }
+
+        // Added by agent: match-type auto-sync and remove-all functionality
+        function setMatchType(keyword, matchType) {
+            ['exact','broad','phrase'].forEach(t => {
+                window.savedKeywords[t] = (window.savedKeywords[t] || []).filter(k => k !== keyword);
+            });
+            if (matchType) {
+                if (!window.savedKeywords[matchType].includes(keyword)) {
+                    window.savedKeywords[matchType].push(keyword);
+                }
+                window.keywordMatchTypes.set(keyword, matchType);
+            } else {
+                window.keywordMatchTypes.delete(keyword);
+            }
+            updateSavedKeywordsDisplay();
+            displayResults();
+        }
+        function handleMatchTypeChange(keyword, matchType) {
+            setMatchType(keyword, matchType);
+            showNotification(`Set \"${keyword}\" to ${matchType || 'None'}`, 'success');
+        }
+        function saveKeyword(keyword, matchType) {
+            setMatchType(keyword, matchType);
+            showNotification(`Saved \"${keyword}\" as ${matchType} match`, 'success');
+        }
+        function applyBulkMatchType() {
+            const matchType = document.getElementById('bulkMatchType').value;
+            window.selectedKeywords.forEach(keyword => setMatchType(keyword, matchType));
+            showNotification(`Applied ${matchType} to ${window.selectedKeywords.size} keywords`, 'success');
+        }
+        function clearKeywords(matchType) {
+            const removed = window.savedKeywords[matchType] || [];
+            removed.forEach(k => window.keywordMatchTypes.delete(k));
+            window.savedKeywords[matchType] = [];
+            updateSavedKeywordsDisplay();
+            displayResults();
+            showNotification(`Removed ${removed.length} ${matchType} keywords`, 'success');
+        }
+        function clearAllKeywords() {
+            ['exact','broad','phrase'].forEach(t => {
+                (window.savedKeywords[t] || []).forEach(k => window.keywordMatchTypes.delete(k));
+                window.savedKeywords[t] = [];
+            });
+            updateSavedKeywordsDisplay();
+            displayResults();
+            showNotification('Removed all saved keywords', 'success');
         }
     </script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"9765c64f7dc8167a","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.8.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
