@@ -491,6 +491,11 @@
                             <option value="broad">Broad Match</option>
                             <option value="phrase">Phrase Match</option>
                         </select>
+                        <!-- Added by agent: toggle to control add vs move behavior -->
+                        <label class="inline-flex items-center text-white/90 text-sm">
+                            <input id="bulkAddMode" type="checkbox" class="mr-2">
+                            Add (don’t remove)
+                        </label>
                         <button onclick="applyBulkMatchType()" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-4 py-1 rounded text-sm transition-colors">
                             Apply to Selected
                         </button>
@@ -2226,18 +2231,68 @@
             updateSavedKeywordsDisplay();
             displayResults();
         }
+
+        // Added by agent: duplicate keyword across match types without removal
+        function addMatchType(keyword, matchType) {
+            // ensure the bucket exists
+            if (!Array.isArray(window.savedKeywords[matchType])) {
+                window.savedKeywords[matchType] = [];
+            }
+            // only push if not already present
+            if (!window.savedKeywords[matchType].includes(keyword)) {
+                window.savedKeywords[matchType].push(keyword);
+            }
+            // Update the keywordMatchTypes map so the dropdown shows the newly added type
+            if (matchType) {
+                window.keywordMatchTypes.set(keyword, matchType);
+            }
+            updateSavedKeywordsDisplay();
+            displayResults();
+        }
+
+        // Added by agent: exclusive move of a keyword to a single match type
+        function moveMatchType(keyword, matchType) {
+            // Remove from all lists first
+            ['exact','broad','phrase'].forEach(t => {
+                window.savedKeywords[t] = (window.savedKeywords[t] || []).filter(k => k !== keyword);
+            });
+            if (matchType) {
+                if (!window.savedKeywords[matchType].includes(keyword)) {
+                    window.savedKeywords[matchType].push(keyword);
+                }
+                window.keywordMatchTypes.set(keyword, matchType);
+            } else {
+                window.keywordMatchTypes.delete(keyword);
+            }
+            updateSavedKeywordsDisplay();
+            displayResults();
+        }
         function handleMatchTypeChange(keyword, matchType) {
-            setMatchType(keyword, matchType);
+            // Always move when user selects match type from the dropdown (exclusive)
+            moveMatchType(keyword, matchType);
             showNotification(`Set \"${keyword}\" to ${matchType || 'None'}`, 'success');
         }
         function saveKeyword(keyword, matchType) {
-            setMatchType(keyword, matchType);
+            // Save always moves keyword to the chosen match type
+            moveMatchType(keyword, matchType);
             showNotification(`Saved \"${keyword}\" as ${matchType} match`, 'success');
         }
         function applyBulkMatchType() {
             const matchType = document.getElementById('bulkMatchType').value;
-            window.selectedKeywords.forEach(keyword => setMatchType(keyword, matchType));
-            showNotification(`Applied ${matchType} to ${window.selectedKeywords.size} keywords`, 'success');
+            const addMode = document.getElementById('bulkAddMode') && document.getElementById('bulkAddMode').checked;
+            // No match type selected or no keywords selected
+            if (!matchType || !window.selectedKeywords || window.selectedKeywords.size === 0) {
+                showNotification('Please select a match type and at least one keyword.', 'warning');
+                return;
+            }
+            window.selectedKeywords.forEach(keyword => {
+                if (addMode) {
+                    addMatchType(keyword, matchType);
+                } else {
+                    moveMatchType(keyword, matchType);
+                }
+            });
+            showNotification(`${addMode ? 'Added' : 'Moved'} ${window.selectedKeywords.size} keyword(s) to ${matchType}`, 'success');
         }
         function clearKeywords(matchType) {
             const removed = window.savedKeywords[matchType] || [];
