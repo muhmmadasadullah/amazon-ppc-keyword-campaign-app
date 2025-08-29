@@ -975,6 +975,9 @@
         window.selectedKeywords = new Set();
         window.keywordMatchTypes = new Map();
 
+        // Flag to indicate bulk updates (to defer re-rendering during loops)
+        window.isBulkUpdating = false;
+
         // Campaign builder variables
         window.campaigns = [];
         window.campaignConfigs = {};
@@ -1216,6 +1219,9 @@
         }
 
         function displayResults() {
+            // Skip rendering during bulk updates
+            if (window.isBulkUpdating) return;
+
             const tbody = document.getElementById('resultsTable');
             const noResults = document.getElementById('noResults');
             const resultsCount = document.getElementById('resultsCount');
@@ -1348,6 +1354,9 @@
         }
 
         function updateSavedKeywordsDisplay() {
+            // Skip rendering during bulk updates
+            if (window.isBulkUpdating) return;
+
             const hasKeywords = Object.values(window.savedKeywords).some(arr => arr.length > 0);
             
             if (hasKeywords) {
@@ -1948,7 +1957,10 @@
                 // Add + prefix for SP-BMM campaigns
                 const campaign = window.campaigns.find(c => c.id === campaignId);
                 if (campaign && campaign.type === 'SP-BMM') {
-                    keywords = keywords.map(k => k.startsWith('+') ? k : `+${k}`);
+                    // For broad match modifier campaigns, prefix + to every word in the phrase
+                    keywords = keywords.map(k => {
+                        return k.split(/\s+/).map(w => w.startsWith('+') ? w : `+${w}`).join(' ');
+                    });
                 }
                 
                 window.campaignConfigs[campaignId].keywords = keywords;
@@ -2096,8 +2108,9 @@
                         if (campaign.type === 'SP-PH') matchType = 'phrase';
                         else if (campaign.type === 'SP-BR' || campaign.type === 'SP-BMM') {
                             matchType = 'broad';
-                            if (campaign.type === 'SP-BMM' && !keywordText.startsWith('+')) {
-                                keywordText = `+${keywordText}`;
+                            if (campaign.type === 'SP-BMM') {
+                                // For broad match modifier campaigns, prefix + to each word
+                                keywordText = keywordText.split(/\s+/).map(w => w.startsWith('+') ? w : `+${w}`).join(' ');
                             }
                         }
                         
@@ -2247,8 +2260,11 @@
             if (matchType) {
                 window.keywordMatchTypes.set(keyword, matchType);
             }
-            updateSavedKeywordsDisplay();
-            displayResults();
+            // Only re-render if not in a bulk update
+            if (!window.isBulkUpdating) {
+                updateSavedKeywordsDisplay();
+                displayResults();
+            }
         }
 
         // Added by agent: exclusive move of a keyword to a single match type
@@ -2265,8 +2281,11 @@
             } else {
                 window.keywordMatchTypes.delete(keyword);
             }
-            updateSavedKeywordsDisplay();
-            displayResults();
+            // Only re-render if not in a bulk update
+            if (!window.isBulkUpdating) {
+                updateSavedKeywordsDisplay();
+                displayResults();
+            }
         }
         function handleMatchTypeChange(keyword, matchType) {
             // Always move when user selects match type from the dropdown (exclusive)
@@ -2286,6 +2305,8 @@
                 showNotification('Please select a match type and at least one keyword.', 'warning');
                 return;
             }
+            // Perform updates in bulk to avoid repeated re-renders
+            window.isBulkUpdating = true;
             window.selectedKeywords.forEach(keyword => {
                 if (addMode) {
                     addMatchType(keyword, matchType);
@@ -2293,6 +2314,10 @@
                     moveMatchType(keyword, matchType);
                 }
             });
+            // Reset bulk flag and re-render once
+            window.isBulkUpdating = false;
+            updateSavedKeywordsDisplay();
+            displayResults();
             showNotification(`${addMode ? 'Added' : 'Moved'} ${window.selectedKeywords.size} keyword(s) to ${matchType}`, 'success');
         }
         function clearKeywords(matchType) {
