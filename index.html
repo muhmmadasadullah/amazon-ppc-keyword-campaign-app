@@ -1459,6 +1459,31 @@
             document.getElementById('nomenclaturePattern').addEventListener('input', updateLivePreview);
         }
 
+        // FIXED: Bidding Strategy Canonicalization Function
+        function canonicalizeBiddingStrategy(input) {
+            if (!input) return "Dynamic bids - down only";
+            const k = String(input).trim().toLowerCase().replace(/\s+/g, " ");
+            if (k.includes("fixed")) return "Fixed bid";
+            if (k === "dynamic bids - up and down" || k === "dynamic bidding - up and down")
+                return "Dynamic bids - up and down";
+            if (k === "dynamic bids - down only" || k === "dynamic bidding - down only")
+                return "Dynamic bids - down only";
+            return "Fixed bid";
+        }
+
+        // FIXED: Self-test function for bidding strategy canonicalizer (dev only)
+        function _testBiddingCanonicalizer() {
+            const cases = [
+                ["Fixed bids", "Fixed bid"],
+                ["fixed Bids", "Fixed bid"],
+                ["Fixed bid", "Fixed bid"],
+                ["Dynamic bids - up and down", "Dynamic bids - up and down"],
+                ["dynamic bidding - down only", "Dynamic bids - down only"],
+            ];
+            const bad = cases.filter(([i, e]) => canonicalizeBiddingStrategy(i) !== e);
+            console.log(bad.length ? ["FAIL", bad] : "PASS: bidding canonicalizer");
+        }
+
         function addCampaign(campaignType) {
             const existingInstances = window.campaigns.filter(c => c.type === campaignType);
             const nextVersion = existingInstances.length + 1;
@@ -1841,7 +1866,7 @@
                                     class="form-input w-full focus:ring-2 focus:ring-blue-500">
                                 <option value="Dynamic bids - down only" ${config.biddingStrategy === 'Dynamic bids - down only' ? 'selected' : ''}>Dynamic bids - down only</option>
                                 <option value="Dynamic bids - up and down" ${config.biddingStrategy === 'Dynamic bids - up and down' ? 'selected' : ''}>Dynamic bids - up and down</option>
-                                <option value="Fixed bids" ${config.biddingStrategy === 'Fixed bids' ? 'selected' : ''}>Fixed bids</option>
+                                <option value="Fixed bid" ${config.biddingStrategy === 'Fixed bid' ? 'selected' : ''}>Fixed bid</option>
                             </select>
                         </div>
                     </div>
@@ -1988,6 +2013,11 @@
             const config = window.campaignConfigs[campaignId];
             if (!config) return;
             
+            // FIXED: State migration for legacy "Fixed bids" configurations
+            if (config && /fixed bids/i.test(config.biddingStrategy)) {
+                config.biddingStrategy = "Fixed bid";
+            }
+            
             setTimeout(() => {
                 const budgetField = document.querySelector(`[data-campaign="${campaignId}"][data-field="budget"]`);
                 const bidField = document.querySelector(`[data-campaign="${campaignId}"][data-field="bid"]`);
@@ -2065,7 +2095,7 @@
                 worksheetData.push([
                     'Sponsored Products', 'Campaign', 'Create', campaignName, '', '', '', '', '', campaignName, '',
                     new Date().toISOString().slice(0, 10).replace(/-/g, ''), '', targetingType, 'enabled',
-                    config.budget, '', '', '', '', '', '', config.biddingStrategy, '', '', ''
+                    config.budget, '', '', '', '', '', '', canonicalizeBiddingStrategy(config.biddingStrategy), '', '', ''
                 ]);
                 
                 if (placements.topOfSearch > 0) {
@@ -2337,6 +2367,11 @@
             displayResults();
             showNotification('Removed all saved keywords', 'success');
         }
+        
+        // FIXED: Run bidding strategy canonicalizer self-test on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            _testBiddingCanonicalizer();
+        });
     </script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"9765c64f7dc8167a","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.8.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
 </body>
